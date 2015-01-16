@@ -32,7 +32,9 @@ public class TopologyActionResource extends ServerResource {
         this.topologyId = getAttribute("topology");
         this.action = getAttribute("action");
         this.channelId = getQueryValue("channel");
-        test();
+        if(action.equals("stop")) {
+            stopTopology();
+        }
     }
 
     @Get(value = "txt")
@@ -41,7 +43,7 @@ public class TopologyActionResource extends ServerResource {
                 + "\n on Channel : " + channelId;
     }
 
-    private void test() {
+    private void stopTopology() {
         Map conf = Utils.readStormConfig();
         Client client = NimbusClient.getConfiguredClient(conf).getClient();
         try {
