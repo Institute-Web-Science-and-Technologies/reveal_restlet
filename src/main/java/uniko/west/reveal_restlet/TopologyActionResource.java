@@ -32,8 +32,10 @@ public class TopologyActionResource extends ServerResource {
         this.topologyId = getAttribute("topology");
         this.action = getAttribute("action");
         this.channelId = getQueryValue("channel");
-        if(action.equals("stop")) {
+        if (action.equals("stop")) {
             stopTopology();
+        } else if (action.equals("start")) {
+            startTopology();
         }
     }
 
@@ -48,6 +50,18 @@ public class TopologyActionResource extends ServerResource {
         Client client = NimbusClient.getConfiguredClient(conf).getClient();
         try {
             client.deactivate(topologyId);
+        } catch (NotAliveException ex) {
+            Logger.getLogger(TopologyActionResource.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (TException ex) {
+            Logger.getLogger(TopologyActionResource.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    private void startTopology() {
+        Map conf = Utils.readStormConfig();
+        Client client = NimbusClient.getConfiguredClient(conf).getClient();
+        try {
+            client.activate(topologyId);
         } catch (NotAliveException ex) {
             Logger.getLogger(TopologyActionResource.class.getName()).log(Level.SEVERE, null, ex);
         } catch (TException ex) {
