@@ -39,5 +39,10 @@
             <artifactId>amqp-client</artifactId>
             <version>3.4.3</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.ant</groupId>
+            <artifactId>ant</artifactId>
+            <version>1.8.1</version>
+        </dependency>
     </dependencies>
 </project>
