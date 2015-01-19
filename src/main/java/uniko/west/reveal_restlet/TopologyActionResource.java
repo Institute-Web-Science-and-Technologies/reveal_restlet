@@ -9,6 +9,8 @@ import backtype.storm.generated.Nimbus.Client;
 import backtype.storm.generated.NotAliveException;
 import backtype.storm.utils.NimbusClient;
 import backtype.storm.utils.Utils;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -25,7 +27,9 @@ public class TopologyActionResource extends ServerResource {
     String topologyId;
     String action;
     String channelId;
-    String propertyFilePath = "/home/nico/storm-example-v1_0/config/storm_config.ini";
+    
+    String status;
+    boolean success;
 
     @Override
     public void doInit() {
@@ -48,10 +52,13 @@ public class TopologyActionResource extends ServerResource {
         }
     }
 
-    @Get(value = "txt")
+    @Get(value = "json")
     public String toString() {
-        return "Topology : \"" + this.topologyId + "\"\n Action : " + this.action
-                + "\n on Channel : " + channelId;
+        ObjectNode responseObject = new ObjectNode(JsonNodeFactory.instance);
+        responseObject.put("success", success);
+        responseObject.put("status", status);
+        
+        return responseObject.toString();
     }
 
     private void stopTopology() {
@@ -59,7 +66,10 @@ public class TopologyActionResource extends ServerResource {
         Client client = NimbusClient.getConfiguredClient(conf).getClient();
         try {
             client.deactivate(topologyId);
+            success = true;
+            status = "Topology " + topologyId + " is now inactive";
         } catch (NotAliveException | TException ex) {
+            success = false;
             Logger.getLogger(TopologyActionResource.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
@@ -69,7 +79,10 @@ public class TopologyActionResource extends ServerResource {
         Client client = NimbusClient.getConfiguredClient(conf).getClient();
         try {
             client.activate(topologyId);
+            success = true;
+            status = "Topology " + topologyId + " is now active";
         } catch (NotAliveException | TException ex) {
+            success = false;
             Logger.getLogger(TopologyActionResource.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
@@ -79,15 +92,26 @@ public class TopologyActionResource extends ServerResource {
         Client client = NimbusClient.getConfiguredClient(conf).getClient();
         try {
             client.killTopology(topologyId);
+            success = true;
+            status = "Topology " + topologyId + " was killed";
         } catch (NotAliveException | TException ex) {
+            success = false;
             Logger.getLogger(TopologyActionResource.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
     private void deployTopology() {
         try {
+            if(channelId!=null) {
             AntRunner.deployTopology(topologyId, channelId);
+            success = true;
+            status = "Topology " + topologyId + " was deployed and is listening on channel " + channelId;
+            } else {
+                success = false;
+                status = "channel must not be null";
+            }
         } catch (Exception ex) {
+            success = false;
             Logger.getLogger(TopologyActionResource.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
