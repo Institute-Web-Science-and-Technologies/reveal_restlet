@@ -5,6 +5,8 @@
  */
 package uniko.west.reveal_restlet;
 
+import backtype.storm.generated.KillOptions;
+import backtype.storm.generated.Nimbus;
 import backtype.storm.generated.Nimbus.Client;
 import backtype.storm.generated.NotAliveException;
 import backtype.storm.utils.NimbusClient;
@@ -27,7 +29,7 @@ public class TopologyActionResource extends ServerResource {
     String topologyId;
     String action;
     String channelId;
-    
+
     String status;
     boolean success;
 
@@ -36,15 +38,25 @@ public class TopologyActionResource extends ServerResource {
         this.topologyId = getAttribute("topology");
         this.action = getAttribute("action");
         this.channelId = getQueryValue("channel");
+        Map conf = Utils.readStormConfig();
+        Nimbus.Client client;
+        try {
+            client = NimbusClient.getConfiguredClient(conf).getClient();
+        } catch (Exception ex) {
+            success = false;
+            status = "Failed to connect to Nimbus!";
+            Logger.getLogger(TopologyResource.class.getName()).log(Level.SEVERE, null, ex);
+            return;
+        }
         switch (action) {
             case "stop":
-                stopTopology();
+                stopTopology(client);
                 break;
             case "start":
-                startTopology();
+                startTopology(client);
                 break;
             case "kill":
-                killTopology();
+                killTopology(client);
                 break;
             case "deploy":
                 deployTopology();
@@ -57,13 +69,11 @@ public class TopologyActionResource extends ServerResource {
         ObjectNode responseObject = new ObjectNode(JsonNodeFactory.instance);
         responseObject.put("success", success);
         responseObject.put("status", status);
-        
+
         return responseObject.toString();
     }
 
-    private void stopTopology() {
-        Map conf = Utils.readStormConfig();
-        Client client = NimbusClient.getConfiguredClient(conf).getClient();
+    private void stopTopology(Client client) {
         try {
             client.deactivate(topologyId);
             success = true;
@@ -74,9 +84,7 @@ public class TopologyActionResource extends ServerResource {
         }
     }
 
-    private void startTopology() {
-        Map conf = Utils.readStormConfig();
-        Client client = NimbusClient.getConfiguredClient(conf).getClient();
+    private void startTopology(Client client) {
         try {
             client.activate(topologyId);
             success = true;
@@ -87,11 +95,11 @@ public class TopologyActionResource extends ServerResource {
         }
     }
 
-    private void killTopology() {
-        Map conf = Utils.readStormConfig();
-        Client client = NimbusClient.getConfiguredClient(conf).getClient();
+    private void killTopology(Client client) {
         try {
-            client.killTopology(topologyId);
+            KillOptions killOpts = new KillOptions();
+            killOpts.set_wait_secs(2);
+            client.killTopologyWithOpts(topologyId, killOpts);
             success = true;
             status = "Topology " + topologyId + " was killed";
         } catch (NotAliveException | TException ex) {
@@ -102,10 +110,10 @@ public class TopologyActionResource extends ServerResource {
 
     private void deployTopology() {
         try {
-            if(channelId!=null) {
-            AntRunner.deployTopology(topologyId, channelId);
-            success = true;
-            status = "Topology " + topologyId + " was deployed and is listening on channel " + channelId;
+            if (channelId != null) {
+                AntRunner.deployTopology(topologyId, channelId);
+                success = true;
+                status = "Topology " + topologyId + " was deployed and is listening on channel " + channelId;
             } else {
                 success = false;
                 status = "channel must not be null";
