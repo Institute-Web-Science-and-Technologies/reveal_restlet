@@ -45,7 +45,7 @@ public class TopologyActionResource extends ServerResource {
         } catch (Exception ex) {
             success = false;
             status = "Failed to connect to Nimbus!";
-            Logger.getLogger(TopologyResource.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(TopologyActionResource.class.getName()).log(Level.SEVERE, null, ex);
             return;
         }
         switch (action) {
