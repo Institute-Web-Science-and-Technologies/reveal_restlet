@@ -13,7 +13,7 @@ deploy someTopology on someChannel | http://localhost:8182/storm/someTopology/de
 
 ## Installing the REST service
 * Follow the instructions of the project documentation pdf file in order to set up rabbitmq, storm, ant etc.
-* This project comes as a maven project so download an install [maven](http://maven.apache.org/download.cgi)
+* This project comes as a maven project so download and install [maven](http://maven.apache.org/download.cgi)
 * Edit the properties in [storm.properties](../master/storm.properties) according to your local storm installation
 * invoke "make build" in order to build the project and "make run" in order to run the REST service
 
