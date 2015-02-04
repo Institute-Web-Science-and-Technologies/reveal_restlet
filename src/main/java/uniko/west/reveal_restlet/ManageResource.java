@@ -8,6 +8,7 @@ package uniko.west.reveal_restlet;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -49,7 +50,9 @@ public class ManageResource extends ServerResource {
         List<String> fileNames = new ArrayList<>();
         try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(Paths.get(directory))) {
             for (Path path : directoryStream) {
-                fileNames.add(path.getFileName().toString());
+                if(Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)){
+                    fileNames.add(path.getFileName().toString());
+                }
             }
         } catch (IOException ex) {
             Logger.getLogger(ManageResource.class.getName()).log(Level.SEVERE, null, ex);
