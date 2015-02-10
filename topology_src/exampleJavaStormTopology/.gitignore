@@ -1,5 +1,8 @@
 # Ignore everything in this directory
 *
-# Except this file
+# Except these files
 !.gitignore
-!./src/itinno/example/LocationCrawlerBolt.java
+!LocationCrawlerBolt.java
+
+# ...even if they are in subdirectories
+!*/
