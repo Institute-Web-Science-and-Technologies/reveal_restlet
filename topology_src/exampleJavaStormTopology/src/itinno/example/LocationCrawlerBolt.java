@@ -320,7 +320,7 @@ public class LocationCrawlerBolt extends BaseRichBolt {
         for(Map<String, Literal> location : relatedLocations) {
             JSONObject linkedDataInfo = new JSONObject();
             linkedDataInfo.put("ukob:explored_entity_uri", location.get("uri").getString());
-            linkedDataInfo.put("ukob:expored_entity_label", (location.get("label")==null)? "" : location.get("label").getString());
+            linkedDataInfo.put("ukob:explored_entity_label", (location.get("label")==null)? "" : location.get("label").getString());
             String openGisPoint = "POINT(" + location.get("lat").getDouble() + " " + location.get("long").getDouble() +")";
             linkedDataInfo.put("ukob:explored_entity_loc", openGisPoint);
             exploredEntities.add(linkedDataInfo);
