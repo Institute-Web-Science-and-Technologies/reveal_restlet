@@ -242,10 +242,9 @@ public class LocationCrawlerBolt extends BaseRichBolt {
     }
 
 
-    private static Map<String, Literal> dereferenceLocation(String locationUri) {
+    private Map<String, Literal> dereferenceLocation(String locationUri) {
         HashMap<String, Literal> resultMap = new HashMap<>();
         Model locationTriples = ModelFactory.createDefaultModel().read(locationUri);
-        System.out.println("read in");
         
         ParameterizedSparqlString queryString = new ParameterizedSparqlString(
                 "PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>"
