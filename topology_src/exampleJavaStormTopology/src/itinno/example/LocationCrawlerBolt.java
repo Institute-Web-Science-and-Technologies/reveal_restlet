@@ -11,6 +11,7 @@ import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.topology.base.BaseRichBolt;
 import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
+import backtype.storm.tuple.Values;
 import com.hp.hpl.jena.query.ParameterizedSparqlString;
 import com.hp.hpl.jena.query.Query;
 import com.hp.hpl.jena.query.QueryExecution;
@@ -251,18 +252,19 @@ public class LocationCrawlerBolt extends BaseRichBolt {
                 + "SELECT ?lat ?long ?label WHERE {"
                 + "  ?s geo:lat ?lat ."
                 + "  ?s geo:long ?long ."
-                + "  OPTIONAL { ?s ?rdfs_label ?label . }"
+                + "  OPTIONAL { ?s ?rdfs_label ?label ."
+                        + "     FILTER LANGMATCHES(LANG(?label), \"en\") }"
                         + " }");
         queryString.setIri("?s", locationUri);
         queryString.setIri("?rdfs_label", RDFS.label.getURI());
-        
+       
         Query query = QueryFactory.create(queryString.asQuery());
         ResultSet results;
         try (QueryExecution qexec = QueryExecutionFactory.create(query, locationTriples)) {
             results = qexec.execSelect();
             if (results.hasNext()) {
                 QuerySolution result = results.next();
-                resultMap.put("location", (Literal)locationTriples.createLiteral(locationUri));
+                resultMap.put("uri", (Literal)locationTriples.createLiteral(locationUri));
                 resultMap.put("lat", (Literal)result.get("?lat"));
                 resultMap.put("long", (Literal)result.get("?long"));
                 resultMap.put("label", (Literal)result.get("?label"));
@@ -310,9 +312,25 @@ public class LocationCrawlerBolt extends BaseRichBolt {
                 }
             }
         }
-        this.logger.info("final result= " + relatedLocations.toString());
+        
+        JSONObject geospatialContext = new JSONObject();
+        geospatialContext.put("itinno:item_id", message.get("itinno:item_id"));
+        JSONArray exploredEntities = new JSONArray();
+        
+        for(Map<String, Literal> location : relatedLocations) {
+            JSONObject linkedDataInfo = new JSONObject();
+            linkedDataInfo.put("ukob:explored_entity_uri", location.get("uri").getString());
+            linkedDataInfo.put("ukob:expored_entity_label", (location.get("label")==null)? "" : location.get("label").getString());
+            String openGisPoint = "POINT(" + location.get("lat").getDouble() + " " + location.get("long").getDouble() +")";
+            linkedDataInfo.put("ukob:explored_entity_loc", openGisPoint);
+            exploredEntities.add(linkedDataInfo);
+        }
+        
+        geospatialContext.put("ukob:explored_entities", exploredEntities);
+        
+        this.logger.info("final result= " + geospatialContext.toJSONString());
         // todo: emit annotated locations
-        this.collector.emit(null);
+        this.collector.emit(new Values(geospatialContext));
         // Acknowledge the collector that we actually received the input
         collector.ack(input);
     }
