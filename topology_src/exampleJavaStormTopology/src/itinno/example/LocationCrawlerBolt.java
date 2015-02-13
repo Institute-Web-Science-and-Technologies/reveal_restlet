@@ -33,7 +33,9 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -116,13 +118,12 @@ public class LocationCrawlerBolt extends BaseRichBolt {
 
     private void init() {
         // read the LinkedGeoData <-> DBPedia links file
-        dBpediaToLinkedGeoDataMap = ModelFactory.createDefaultModel();
-        InputStream in = FileManager.get().open("/home/nico/reveal_restlet/topology_src/exampleJavaStormTopology/config/linkedgeodata_links.nt");
-        dBpediaToLinkedGeoDataMap.read(in, null, "N-TRIPLES");
+        dBpediaToLinkedGeoDataMap = ModelFactory.createDefaultModel().read("http://localhost:8182/static/linkedgeodata_links.nt");
 
         // read the property probabilites file
         propertyProbabilityMap = new HashMap<>();
-        try (BufferedReader br = new BufferedReader(new FileReader("/home/nico/reveal_restlet/topology_src/exampleJavaStormTopology/config/nb_count.csv"))) {
+
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(new URL("http://localhost:8182/static/nb_count.csv").openStream()))) {
             String line;
             String[] lineArray;
 
