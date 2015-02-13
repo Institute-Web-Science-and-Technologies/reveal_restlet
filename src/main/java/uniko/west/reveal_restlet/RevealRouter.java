@@ -5,11 +5,9 @@
  */
 package uniko.west.reveal_restlet;
 
-import org.restlet.Application;
+import java.io.File;
 import org.restlet.Component;
-import org.restlet.Restlet;
 import org.restlet.data.Protocol;
-import org.restlet.data.Reference;
 import org.restlet.resource.Directory;
 import org.restlet.resource.ServerResource;
 import org.restlet.routing.Router;
@@ -24,13 +22,18 @@ public class RevealRouter extends ServerResource {
         // Create a new Restlet component and add a HTTP server connector to it
         Component component = new Component();
         component.getServers().add(Protocol.HTTP, 8182);
+        component.getClients().add(Protocol.FILE);
 
         Router router = new Router(component.getContext().createChildContext());
 
         // Attach the resources to the router
         router.attach("/storm/{topology}/{action}", TopologyActionResource.class);
         router.attach("/manage", ManageResource.class);
-        
+
+        File resourcesDir = new File("./resources");
+        Directory directory = new Directory(component.getContext().createChildContext(), "file://" + resourcesDir.getAbsolutePath());
+        router.attach("/static/", directory);
+
         component.getDefaultHost().attach(router);
 
         component.start();
