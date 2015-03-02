@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="reveal.storm" basedir="./">
+
+	<!--
+		clean and checking targets
+	-->
+	<target name="clean" depends="init.properties" unless="noclean">
+		<delete dir="${bin.dir}" failonerror="false"/>
+	</target>
+	
+	
+	<!-- 
+	    run example Storm topology with both Python and Java bolts   
+	-->
+	<target name="example-storm-python" depends="clean, init.properties, init.versions" description="run example Storm topology with both Python and Java bolts" >
+		<echo>
+		Deploying Storm topology with Python and Java bolts...[start]
+		</echo>
+		
+		<!-- check the storm.properties file where the host address of a remote Storm Nimbusmust be defined -->
+		<fail unless="nimbus.host" message="Missing main Storm Nimbus host address (e.g. the address of Nimbus where the Storm topology will be submitted). Possible causes: storm.properties 
+		file was not specified (command to specify properties file: ant -f build.xml distributed.storm -propertyfile=&quot;storm.properties&quot;) or nimbus.host was incorectly set in the storm.properties file (please see &#34;storm.properties&#34; file for more detailed 
+		information on how to configure an address of Storm Nimbus host)."/>
+		 
+		<!-- check if storm.home was specified in the storm.properties file (required to build classpath, as all the needed jar lib files will be located there) -->
+		<fail unless="storm.home" message="Path to the Storm home directory (storm.home) was not specified in the storm.properties file (please see storm.properties file for more detailed 
+		information on how to configure a path to Storm home directory)." />
+		
+		<!-- create a bin directory -->
+		<mkdir dir="${bin.dir}" />
+		<mkdir dir="${bin.dir}/resources" />
+		
+		<!-- Setup main Storm classpath reference (expicitly use libraries that were copied to the lib directory) -->
+		<path id="build.classpath" description="main Storm classpath reference">
+			<pathelement location="${bin.dir}" />
+			
+			<!-- add needed third party Storm jars to the classpath -->
+			<fileset dir="${storm.home}/lib" includes="*.jar" />
+		</path>
+		
+		<!-- initialise classpath property element  -->
+		<property name="build.classpath" refid="build.classpath" />
+		
+		<echo>
+		Compiling java Storm src code...[start]
+		</echo>
+		
+		<!-- compile Storm src code  -->
+		<javac debug="true" nowarn="true" srcdir="${src.dir}" destdir="${bin.dir}" includeantruntime="true" failonerror="true" >
+			<compilerarg value="-Xlint:none" />
+			<classpath refid="build.classpath" />
+			<include name="itinno/example/ExamplePythonSocialMediaStormTopologyRunner.java"/>
+			<include name="itinno/example/ExampleRabbitmqClient.java"/>
+			<include name="itinno/example/ExampleSocialMediaAMQPSpout.java"/>
+			<include name="itinno/example/ExampleSocialMediaJavaPrinterBolt.java"/>
+			<include name="itinno/example/ExampleSocialMediaPythonLoggerBolt.java"/>
+			<include name="itinno/example/ExampleSocialMediaStormDeclarator.java"/>
+			<include name="itinno/example/ExampleSocialMediaStormTopologyRunner.java"/>
+			<include name="itinno/example/StormLoggingHelper.java.java"/>
+			<include name="com/rapportive/storm/scheme/SimpleJSONScheme.java"/>
+			<include name="io/latent/storm/rabbitmq/com/rapportive/*.java"/>
+			<include name="io/latent/storm/rabbitmq/com/rapportive/config/*.java"/>
+		</javac>
+		
+		<!-- after all the source code colpiled, explicitly copy multilang bolt files to the "bin" directory -->
+		<copy todir="${bin.dir}/resources">
+			<fileset dir="${src.dir}/itinno/example" >
+				<include name="config_helper.py"/>
+				<include name="ExampleSocialMediaLogger.py"/>
+				<include name="storm.py"/>
+			</fileset>
+		</copy>
+			
+		<echo>
+		Compiling java Storm src code...[end]
+		</echo>
+		
+		<echo>
+		Creating Storm Jar file...[start]
+		</echo>
+		
+		<!-- create a Python Storm topology jar file that will be deployed to the remote cluster (main class is specified in the manifest file) -->
+		<jar destfile="${bin.dir}/storm-v${storm.version}.jar" basedir="${bin.dir}" >
+			<manifest>
+				<attribute name="Main-Class" value="itinno.example.ExamplePythonSocialMediaStormTopologyRunner"/>
+			</manifest>
+		</jar>
+		
+		<echo>
+		Creating Storm Jar file...[end]
+		</echo>
+		
+		<echo>
+		Deploying Storm topology to the remote cluster...[end]
+		</echo>
+		
+		<!-- deploy topology to the remote cluster (Windows OS version) -->
+		<exec executable="storm.cmd" dir="." osfamily="windows" failonerror="true" >
+			<arg value="jar" />
+			<arg value="${bin.dir}/storm-v${storm.version}.jar" />
+			<arg value="itinno/example/ExamplePythonSocialMediaStormTopologyRunner" />
+			<arg value="-config" />
+			<arg value="config/storm_config.ini" />
+			<arg value="-mode" />
+			<arg value="distributed" />
+			<arg value="-c" />
+			<arg value="nimbus.host=${nimbus.host}" />
+		</exec>
+				
+		<!-- deploy topology to the remote cluster (Unix OS version) -->
+		<exec executable="storm" dir="." osfamily="unix" failonerror="true" >
+			<arg value="jar" />
+			<arg value="${bin.dir}/storm-v${storm.version}.jar" />
+			<arg value="itinno/example/ExamplePythonSocialMediaStormTopologyRunner" />
+			<arg value="-config" />
+			<arg value="config/storm_config.ini" />
+			<arg value="-mode" />
+			<arg value="distributed" />
+			<arg value="-c" />
+			<arg value="nimbus.host=${nimbus.host}" />
+		</exec>
+		
+		<echo>
+		Deploying Storm topology with Python and Java bolts...[start]
+		</echo>
+	</target>
+	
+
+	
+	<!-- python storm example client unit test -->
+	<target name="example-client-python" depends="init.properties" description="example storm python client unit test" >
+		<echo>
+		Starting unit test:
+		
+		File used: example-tweet-utf8.json
+		Located at: ${unit-test.dir}	
+		</echo>
+		
+		<!-- copyt python unit test and example json files to bin/itinno/example -->
+		<copy file="${unit-test.dir}/example_rabbitmq_client.py" todir="${bin.dir}/itinno/example" />
+		<copy file="${unit-test.dir}/example-tweet-utf8.json" todir="${bin.dir}/itinno/example" />	
+		
+		<exec executable="python" dir="${bin.dir}/itinno/example" failonerror="true" >
+			<arg value="example_rabbitmq_client.py" />
+			<arg value="example-tweet-utf8.json" />
+		</exec>
+	</target>
+	
+	
+	
+	<!-- 
+	    run example Storm topology with Java bolts only   
+	-->
+	<target name="exampleJavaStormTopology" depends="clean, init.properties, init.versions" description="run example Storm topology with Java bolts only" >
+		<echo>
+		Deploying Storm topology with Java bolts only...[start]
+		</echo>
+		
+		<!-- check the storm.properties file where the host address of a remote Storm Nimbusmust be defined -->
+		<fail unless="nimbus.host" message="Missing main Storm Nimbus host address (e.g. the address of Nimbus where the Storm topology will be submitted). Possible causes: storm.properties 
+		file was not specified (command to specify properties file: ant -f build.xml distributed.storm -propertyfile=&quot;storm.properties&quot;) or nimbus.host was incorectly set in the storm.properties file (please see storm.properties file for more detailed 
+		information on how to configure an address of Storm Nimbus host)."/>
+		 
+		<!-- check if storm.home was specified in the storm.properties file (required to build classpath, as all the needed jar lib files will be located there) -->
+		<fail unless="storm.home" message="Path to the Storm home directory (storm.home) was not specified in the storm.properties file (please see storm.properties file for more detailed 
+		information on how to configure a path to Storm home directory)." />
+		
+		<!-- create a bin directory -->
+		<mkdir dir="${bin.dir}" />
+		
+		<!-- Setup main Storm classpath reference (expicitly use libraries that were copied to the lib directory) -->
+		<path id="build.classpath" description="main Storm classpath reference">
+			<pathelement location="${bin.dir}" />
+			
+			<!-- add needed third party Storm jars to the classpath -->
+			<fileset dir="${storm.home}/lib" includes="*.jar" />
+		</path>
+		
+		<!-- initialise classpath property element  -->
+		<property name="build.classpath" refid="build.classpath" />
+		
+		<echo>
+		Compiling java Storm src code...[start]
+		</echo>
+		
+		<!-- compile Storm src code  -->
+		<javac debug="true" nowarn="true" srcdir="${src.dir}" destdir="${bin.dir}" includeantruntime="true" failonerror="true" >
+			<compilerarg value="-Xlint:none" />
+			<classpath refid="build.classpath" />
+			<include name="itinno/example/ExampleJavaSocialMediaStormTopologyRunner.java"/>
+			<include name="itinno/example/ExampleRabbitmqClient.java"/>
+			<include name="itinno/example/ExampleSocialMediaAMQPSpout.java"/>
+			<include name="itinno/example/ExampleSocialMediaJavaLoggerBolt.java"/>
+			<include name="itinno/example/ExampleSocialMediaJavaPrinterBolt.java"/>
+			<include name="itinno/example/ExampleSocialMediaStormDeclarator.java"/>
+			<include name="itinno/example/ExampleSocialMediaStormTopologyRunner.java"/>
+			<include name="itinno/example/StormLoggingHelper.java"/>
+			<include name="com/rapportive/storm/scheme/SimpleJSONScheme.java"/>
+			<include name="io/latent/storm/rabbitmq/com/rapportive/*.java"/>
+			<include name="io/latent/storm/rabbitmq/com/rapportive/config/*.java"/>
+		</javac>
+		
+		<echo>
+		Compiling java Storm src code...[end]
+		</echo>
+		
+		<echo>
+		Creating Storm Jar file...[start]
+		</echo>
+		
+		<!-- create a Java Storm topology jar file that will be deployed to the remote cluster (main class is specified in the manifest file) -->
+		<jar destfile="${bin.dir}/storm-v${storm.version}.jar" basedir="${bin.dir}" >
+			<manifest>
+				<attribute name="Main-Class" value="itinno.example.ExampleJavaSocialMediaStormTopologyRunner"/>
+			</manifest>
+		</jar>
+		
+		<echo>
+		Creating Storm Jar file...[end]
+		</echo>
+		
+		<echo>
+		Deploying Storm topology to the remote cluster...[end]
+		</echo>
+		
+		<!-- deploy topology to the remote cluster (Windows OS version) -->
+		<exec executable="storm.cmd" dir="." osfamily="windows" failonerror="true" >
+			<arg value="jar" />
+			<arg value="${bin.dir}/storm-v${storm.version}.jar" />
+			<arg value="itinno/example/ExampleJavaSocialMediaStormTopologyRunner" />
+			<arg value="-config" />
+			<arg value="config/storm_config.ini" />
+			<arg value="-mode" />
+			<arg value="distributed" />
+			<arg value="-c" />
+			<arg value="nimbus.host=${nimbus.host}" />
+			<arg value="-channelId" />
+			<arg value="${channelId}" />
+			<arg value="-restletURL" />
+			<arg value="${restlet.url}" />
+		</exec>
+				
+		<!-- deploy topology to the remote cluster (Unix OS version) -->
+		<exec executable="storm" dir="." osfamily="unix" failonerror="true" >
+			<arg value="jar" />
+			<arg value="${bin.dir}/storm-v${storm.version}.jar" />
+			<arg value="itinno/example/ExampleJavaSocialMediaStormTopologyRunner" />
+			<arg value="-config" />
+			<arg value="config/storm_config.ini" />
+			<arg value="-mode" />
+			<arg value="distributed" />
+			<arg value="-c" />
+			<arg value="nimbus.host=${nimbus.host}" />
+			<arg value="-channelId" />
+			<arg value="${channelId}" />
+			<arg value="-restletURL" />
+			<arg value="${restlet.url}" />
+		</exec>
+		
+		<echo>
+		Deploying Storm topology with Java bolts only...[start]
+		</echo>
+	</target>
+	
+	
+	
+	<!-- java storm example client unit test -->
+	<target name="example-client-java" depends="init.properties" description="example storm java client unit test" >
+		<echo>
+		Starting unit test:
+		
+		File used: example-tweet-utf8.json
+		Located at: ${unit-test.dir}	
+		</echo>
+		
+		<!-- check if storm.home was specified in the storm.properties file (required to build classpath, as all the needed jar lib files will be located there) -->
+		<fail unless="storm.home" message="Path to the Storm home directory (storm.home) was not specified in the storm.properties file (please see storm.properties file for more detailed 
+		information on how to configure a path to Storm home directory)." />
+		
+		<!-- setup main Storm classpath reference -->
+		<path id="build.classpath" description="main Storm classpath reference">
+			<pathelement location="${bin.dir}" />
+			
+			<!-- add needed third party Storm jars to the classpath -->
+			<fileset dir="${storm.home}/lib" includes="*.jar" />
+		</path>
+		
+		<!-- initialise classpath property element  -->
+		<property name="build.classpath" refid="build.classpath" />
+		
+		<!-- copyt python unit test and example json files to bin/itinno/example -->
+		<copy file="${unit-test.dir}/example-tweet-utf8.json" todir="${bin.dir}/itinno/example" />	
+		
+		<!-- Compile java unit test client -->
+		<javac debug="true" nowarn="true" srcdir="${unit-test.dir}" destdir="${bin.dir}" includeantruntime="true" failonerror="true" >
+			<compilerarg value="-Xlint:none" />
+			<classpath refid="build.classpath" />
+			<include name="ExampleRabbitmqClient.java"/>
+		</javac>
+		
+		<exec executable="java" dir="${bin.dir}" failonerror="true" >
+			<arg value="-classpath"/>
+			<arg value="${build.classpath}" />
+			<arg value="itinno/example/ExampleRabbitmqClient" />
+			<arg value="itinno/example/example-tweet-utf8.json" />
+		</exec>
+	</target>
+	
+	
+	<!--
+		properties not dependant on local context
+		version numbers for software releases
+	-->
+	<target name="init.properties" description="Initialise properties">
+		<property name="project.name" value="reveal"/>
+		<property name="project.home" value="."/>
+		<property name="bin.dir" value="./bin"/>
+		<property name="config.dir" value="./config"/>
+		<property name="doc.dir" value="./doc"/>
+		<property name="src.dir" value="./src"/>
+		<property name="unit-test.dir" value="./unit-test"/>
+	</target>
+	
+	
+	<target name="init.versions" description="Initialise version numbers for distribution targets">
+		<property name="storm.version" value="1_0"/>
+	</target>
+
+</project>
