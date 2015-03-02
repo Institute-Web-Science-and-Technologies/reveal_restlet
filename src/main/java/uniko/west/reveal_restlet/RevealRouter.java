@@ -6,6 +6,7 @@
 package uniko.west.reveal_restlet;
 
 import java.io.File;
+import java.net.InetAddress;
 import org.restlet.Component;
 import org.restlet.data.Protocol;
 import org.restlet.resource.Directory;
@@ -17,7 +18,7 @@ import org.restlet.routing.Router;
  * @author nico
  */
 public class RevealRouter extends ServerResource {
-
+    
     public static void main(String[] args) throws Exception {
         // Create a new Restlet component and add a HTTP server connector to it
         Component component = new Component();

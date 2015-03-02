@@ -12,6 +12,7 @@ package uniko.west.reveal_restlet;
  */
 public class StaticInformation {
     
-    public static String stormPropertiesFile = "./storm.properties";
+    public static String stormPropertiesFile = "./ant.properties";
     public static String topologySrcDir = "./topology_src";
+    
 }
