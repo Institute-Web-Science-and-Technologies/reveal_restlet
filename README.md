@@ -27,9 +27,9 @@ deploy someTopology on someChannel | http://localhost:8182/storm/someTopology/de
 the name of the copied folder)
 
 ## Implementing a storm bolt
-* A sample implementation is available at [here](../master/topology_src/exampleJavaStormTopology/src/itinno/example/LocationCrawlerBolt.java)
+* A sample implementation is available [here](../master/topology_src/exampleJavaStormTopology/src/itinno/example/LocationCrawlerBolt.java)
 * This sample uses static files for its computations. All static files which are used by a bolt have to be moved into the [resources](../master/resources)
 directory in order to be available at runtime. Every file which is located in this directory will be accessible via http at http://localhost:8182/static. 
-If the topology runs on a different server than this REST service then the entry for "restlet.url" in [ant.properties](../master/ant.properties has to be edited accordingly.
+If the topology runs on a different server than this REST service then the entry for "restlet.url" in [ant.properties](../master/ant.properties) has to be edited accordingly.
 * Other than static files, also third-party libraries have to be available at runtime for storm bolts. The [sample implementation](../master/topology_src/exampleJavaStormTopology/src/itinno/example/LocationCrawlerBolt.java)
 for instance uses the apache Jena library. Therefore all library jars have to be copied into the $STORM_HOME/lib folder to make them available for storm bolts.
