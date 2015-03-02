@@ -25,14 +25,11 @@ import com.hp.hpl.jena.rdf.model.ModelFactory;
 import com.hp.hpl.jena.rdf.model.RDFNode;
 import com.hp.hpl.jena.rdf.model.SimpleSelector;
 import com.hp.hpl.jena.rdf.model.impl.ResourceImpl;
-import com.hp.hpl.jena.util.FileManager;
 import com.hp.hpl.jena.vocabulary.OWL;
 import com.hp.hpl.jena.vocabulary.RDFS;
 import itinno.common.StormLoggingHelper;
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
 import java.net.URL;
@@ -57,6 +54,7 @@ public class LocationCrawlerBolt extends BaseRichBolt {
     private HashMap<String, HashMap<String, Integer>> propertyProbabilityMap;
     private boolean initialized = false;
     private String strExampleEmitFieldsId;
+    private String restletURL;
 
     // Initialise Logger object
     private ch.qos.logback.classic.Logger logger = null;
@@ -64,7 +62,7 @@ public class LocationCrawlerBolt extends BaseRichBolt {
     private String strLogPattern;
     private ch.qos.logback.classic.Level logLevel;
 
-    public LocationCrawlerBolt(String strExampleEmitFieldsId, String strLogBaseDir, String strLogPattern, ch.qos.logback.classic.Level logLevel) throws Exception {
+    public LocationCrawlerBolt(String strExampleEmitFieldsId, String strLogBaseDir, String strLogPattern, ch.qos.logback.classic.Level logLevel, String restletURL) throws Exception {
         super();
 
         // Store emit fields name, ExampleSocialMediaJavaLoggerBolt id and path to the main configuration file
@@ -86,6 +84,8 @@ public class LocationCrawlerBolt extends BaseRichBolt {
         if (!(logLevel instanceof ch.qos.logback.classic.Level)) {
             throw new Exception("Log level object must be instance of the ch.qos.logback.classic.Level, but was ." + logLevel.getClass());
         }
+        
+        this.restletURL = restletURL;
 
         // After all the above checks complete, store the emit field id, path (or name) of the log file and log level  
         this.strExampleEmitFieldsId = strExampleEmitFieldsId;
@@ -118,12 +118,12 @@ public class LocationCrawlerBolt extends BaseRichBolt {
 
     private void init() {
         // read the LinkedGeoData <-> DBPedia links file
-        dBpediaToLinkedGeoDataMap = ModelFactory.createDefaultModel().read("http://localhost:8182/static/linkedgeodata_links.nt");
+        dBpediaToLinkedGeoDataMap = ModelFactory.createDefaultModel().read(restletURL + "/static/linkedgeodata_links.nt");
 
         // read the property probabilites file
         propertyProbabilityMap = new HashMap<>();
 
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(new URL("http://localhost:8182/static/nb_count.csv").openStream()))) {
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(new URL(restletURL + "/static/nb_count.csv").openStream()))) {
             String line;
             String[] lineArray;
 
