@@ -84,7 +84,7 @@ public class LocationCrawlerBolt extends BaseRichBolt {
         if (!(logLevel instanceof ch.qos.logback.classic.Level)) {
             throw new Exception("Log level object must be instance of the ch.qos.logback.classic.Level, but was ." + logLevel.getClass());
         }
-        
+
         this.restletURL = restletURL;
 
         // After all the above checks complete, store the emit field id, path (or name) of the log file and log level  
@@ -242,32 +242,31 @@ public class LocationCrawlerBolt extends BaseRichBolt {
         }
     }
 
-
     private Map<String, Literal> dereferenceLocation(String locationUri) {
         HashMap<String, Literal> resultMap = new HashMap<>();
         Model locationTriples = ModelFactory.createDefaultModel().read(locationUri);
-        
+
         ParameterizedSparqlString queryString = new ParameterizedSparqlString(
                 "PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>"
                 + "SELECT ?lat ?long ?label WHERE {"
                 + "  ?s geo:lat ?lat ."
                 + "  ?s geo:long ?long ."
                 + "  OPTIONAL { ?s ?rdfs_label ?label ."
-                        + "     FILTER LANGMATCHES(LANG(?label), \"en\") }"
-                        + " }");
+                + "     FILTER LANGMATCHES(LANG(?label), \"en\") }"
+                + " }");
         queryString.setIri("?s", locationUri);
         queryString.setIri("?rdfs_label", RDFS.label.getURI());
-       
+
         Query query = QueryFactory.create(queryString.asQuery());
         ResultSet results;
         try (QueryExecution qexec = QueryExecutionFactory.create(query, locationTriples)) {
             results = qexec.execSelect();
             if (results.hasNext()) {
                 QuerySolution result = results.next();
-                resultMap.put("uri", (Literal)locationTriples.createLiteral(locationUri));
-                resultMap.put("lat", (Literal)result.get("?lat"));
-                resultMap.put("long", (Literal)result.get("?long"));
-                resultMap.put("label", (Literal)result.get("?label"));
+                resultMap.put("uri", (Literal) locationTriples.createLiteral(locationUri));
+                resultMap.put("lat", (Literal) result.get("?lat"));
+                resultMap.put("long", (Literal) result.get("?long"));
+                resultMap.put("label", (Literal) result.get("?label"));
                 return resultMap;
             } else {
                 return null;
@@ -295,39 +294,58 @@ public class LocationCrawlerBolt extends BaseRichBolt {
             JSONArray locationSet = (JSONArray) message.get("itinno:loc_set");
 
             for (int i = 0; i < locationSet.size(); i++) {
-                JSONArray containerArray = (JSONArray) locationSet.get(i);
-                String linkedGeoDataUri = (String) ((JSONArray) containerArray.get(10)).get(0);
+                JSONObject locationDictionary = (JSONObject) locationSet.get(i);
+                JSONArray linkedDataUris = (JSONArray) locationDictionary.get("linked_data");
 
-                String dbPediaUri = mapToDBPedia(linkedGeoDataUri);
-                if (dbPediaUri != null) {
-                    Map<String, ArrayList<String>> possibleLocations = lookUpDBPediaUri(dbPediaUri);
-                    for (Entry<String, ArrayList<String>> e : possibleLocations.entrySet()) {
-                        if (checkCandidateBasedOnProperties(e.getValue())) {
-                            Map<String, Literal> locationWithCoordinates = dereferenceLocation(e.getKey());
-                            if (locationWithCoordinates != null) {
-                                relatedLocations.add(locationWithCoordinates);
+                for (Object o : linkedDataUris.toArray()) {
+                    String linkedGeoDataUri = (String) o;
+
+                    String dbPediaUri = mapToDBPedia(linkedGeoDataUri);
+                    if (dbPediaUri != null) {
+                        Map<String, ArrayList<String>> possibleLocations = lookUpDBPediaUri(dbPediaUri);
+                        for (Entry<String, ArrayList<String>> e : possibleLocations.entrySet()) {
+                            if (checkCandidateBasedOnProperties(e.getValue())) {
+                                Map<String, Literal> locationWithCoordinates = dereferenceLocation(e.getKey());
+                                if (locationWithCoordinates != null) {
+                                    relatedLocations.add(locationWithCoordinates);
+                                }
                             }
                         }
                     }
                 }
+//                JSONArray containerArray = (JSONArray) locationSet.get(i);
+//                String linkedGeoDataUri = (String) ((JSONArray) containerArray.get(10)).get(0);
+//
+//                String dbPediaUri = mapToDBPedia(linkedGeoDataUri);
+//                if (dbPediaUri != null) {
+//                    Map<String, ArrayList<String>> possibleLocations = lookUpDBPediaUri(dbPediaUri);
+//                    for (Entry<String, ArrayList<String>> e : possibleLocations.entrySet()) {
+//                        if (checkCandidateBasedOnProperties(e.getValue())) {
+//                            Map<String, Literal> locationWithCoordinates = dereferenceLocation(e.getKey());
+//                            if (locationWithCoordinates != null) {
+//                                relatedLocations.add(locationWithCoordinates);
+//                            }
+//                        }
+//                    }
+//                }
             }
         }
-        
+
         JSONObject geospatialContext = new JSONObject();
         geospatialContext.put("itinno:item_id", message.get("itinno:item_id"));
         JSONArray exploredEntities = new JSONArray();
-        
-        for(Map<String, Literal> location : relatedLocations) {
+
+        for (Map<String, Literal> location : relatedLocations) {
             JSONObject linkedDataInfo = new JSONObject();
             linkedDataInfo.put("ukob:explored_entity_uri", location.get("uri").getString());
-            linkedDataInfo.put("ukob:explored_entity_label", (location.get("label")==null)? "" : location.get("label").getString());
-            String openGisPoint = "POINT(" + location.get("lat").getDouble() + " " + location.get("long").getDouble() +")";
+            linkedDataInfo.put("ukob:explored_entity_label", (location.get("label") == null) ? "" : location.get("label").getString());
+            String openGisPoint = "POINT(" + location.get("lat").getDouble() + " " + location.get("long").getDouble() + ")";
             linkedDataInfo.put("ukob:explored_entity_loc", openGisPoint);
             exploredEntities.add(linkedDataInfo);
         }
-        
+
         geospatialContext.put("ukob:explored_entities", exploredEntities);
-        
+
         this.logger.info("final result= " + geospatialContext.toJSONString());
         // todo: emit annotated locations
         this.collector.emit(new Values(geospatialContext));
