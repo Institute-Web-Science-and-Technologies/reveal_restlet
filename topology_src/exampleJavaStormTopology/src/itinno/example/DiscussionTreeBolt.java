@@ -186,7 +186,10 @@ public class DiscussionTreeBolt extends BaseRichBolt {
             for(Entry<String, HashSet<String>> e : tweetIdSetsMap.entrySet()) {
                 if(e.getValue().contains(ancestorTweetId)) {
                     e.getValue().add(tweetId);
+                    tweetIdSetsMap.get(ancestorTweetId).add(tweet.tweet_id);
                     discussionTreesMap.get(ancestorTweetId).add(tweet);
+                    found=true;
+                    break;
                 }
             }
             if(!found) {
