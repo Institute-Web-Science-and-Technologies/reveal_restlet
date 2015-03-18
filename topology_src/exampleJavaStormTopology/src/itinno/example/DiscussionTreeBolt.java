@@ -40,6 +40,9 @@ public class DiscussionTreeBolt extends BaseRichBolt {
     private boolean initialized = false;
 
     private DateTime deadline;
+
+    private DateTime pufferStartTime = null;
+
     private int intervalInMinutes;
     private HashMap<String, HashSet<String>> tweetIdSetsMap = new HashMap<>();
     private HashMap<String, ArrayList<Tweet>> discussionTreesMap = new HashMap<>();
@@ -167,52 +170,64 @@ public class DiscussionTreeBolt extends BaseRichBolt {
         this.logger.info("Received message: " + message.toJSONString());
 
         DateTime timestamp = DateTime.parse((String) message.get("created_at"), DateTimeFormat.forPattern("EEE MMM dd HH:mm:ss Z yyyy").withLocale(Locale.US));
+
+        if (pufferStartTime == null) {
+            pufferStartTime = timestamp;
+        }
+
         String authorId = (String) ((JSONObject) message.get("user")).get("id_str");
         String text = (String) message.get("text");
         String tweetId = (String) message.get("id_str");
-        
-        
+
         String ancestorTweetId = (String) message.get("in_reply_to_status_id_str");
-        
+
         JSONObject retweeted_status = (JSONObject) message.get("retweeted_status");
-        if(retweeted_status != null) {
+        if (retweeted_status != null) {
             ancestorTweetId = (String) ((JSONObject) message.get("retweeted_status")).get("id_str");
         }
-        
+
         Tweet tweet = new Tweet(authorId, tweetId, timestamp, text, ancestorTweetId);
 
         if (ancestorTweetId != null) {
-            boolean found = false;
-            for(Entry<String, HashSet<String>> e : tweetIdSetsMap.entrySet()) {
-                if(e.getValue().contains(ancestorTweetId)) {
+            boolean observed = false;
+            for (Entry<String, HashSet<String>> e : tweetIdSetsMap.entrySet()) {
+                if (e.getValue().contains(ancestorTweetId)) {
+                    observed = true;
+                    tweet.setObserved(true);
                     e.getValue().add(tweetId);
                     tweetIdSetsMap.get(ancestorTweetId).add(tweet.tweet_id);
                     discussionTreesMap.get(ancestorTweetId).add(tweet);
-                    found=true;
                     break;
                 }
             }
-            if(!found) {
+            if (!observed) {
+                tweet.setObserved(false);
                 // tweet is a reply or retweet but its ancestor was'nt observed by this bolt, therefore it is treated as a new root Tweet
                 tweetIdSetsMap.put(tweetId, new HashSet<>(Arrays.asList(tweetId)));
                 discussionTreesMap.put(tweetId, new ArrayList<>(Arrays.asList(tweet)));
             }
         } else {
+            tweet.setObserved(true);
             // tweet is no reply or retweet 
             tweetIdSetsMap.put(tweetId, new HashSet<>(Arrays.asList(tweetId)));
             discussionTreesMap.put(tweetId, new ArrayList<>(Arrays.asList(tweet)));
         }
 
         if (timestamp.isAfter(deadline) || timestamp.isEqual(deadline)) {
-            deadline.plusMinutes(intervalInMinutes);
-            ObjectMapper mapper = new ObjectMapper();
-            String jsonResult;
             try {
-                jsonResult = mapper.writeValueAsString(discussionTreesMap.values());
-                this.logger.info("final result= " + jsonResult);
-                this.collector.emit(new Values(jsonResult));
+                ObjectMapper mapper = new ObjectMapper();
+                String jsonResultString;
+                HashMap<String, Object> jsonResult = new HashMap<>();
+                jsonResult.put("trees", discussionTreesMap.values());
+                jsonResult.put("start", pufferStartTime);
+                jsonResult.put("end", timestamp);
+                jsonResultString = mapper.writeValueAsString(jsonResult);
+                this.logger.info("final result= " + jsonResultString);
+                this.collector.emit(new Values(jsonResultString));
                 // Acknowledge the collector that we actually received the input
                 collector.ack(input);
+                deadline.plusMinutes(intervalInMinutes);
+                pufferStartTime = null;
                 this.tweetIdSetsMap = new HashMap<>();
                 this.discussionTreesMap = new HashMap<>();
             } catch (JsonProcessingException ex) {
@@ -220,7 +235,6 @@ public class DiscussionTreeBolt extends BaseRichBolt {
             }
         }
     }
-
 
     /**
      * Declare output field name (in this case simple a string value that is
@@ -234,12 +248,14 @@ public class DiscussionTreeBolt extends BaseRichBolt {
     }
 
     public class Tweet implements Comparable<Tweet> {
+
         private String author_id;
         private String tweet_id;
         private DateTime timestamp;
         private String text;
         private String in_reply_to;
-        
+        private boolean observed;
+
         public Tweet(String authorId, String tweetId, DateTime timestamp, String text, String inReplyTo) {
             this.author_id = authorId;
             this.tweet_id = tweetId;
@@ -317,10 +333,24 @@ public class DiscussionTreeBolt extends BaseRichBolt {
         public void setIn_reply_to(String in_reply_to) {
             this.in_reply_to = in_reply_to;
         }
-        
+
+        /**
+         * @return the observed
+         */
+        public boolean isObserved() {
+            return observed;
+        }
+
+        /**
+         * @param observed the observed to set
+         */
+        public void setObserved(boolean observed) {
+            this.observed = observed;
+        }
+
         @Override
         public int compareTo(Tweet o) {
             return this.timestamp.compareTo(o.getTimestamp());
-        }        
+        }
     }
 }
