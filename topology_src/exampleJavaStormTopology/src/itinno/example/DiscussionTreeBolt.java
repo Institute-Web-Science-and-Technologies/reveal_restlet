@@ -12,6 +12,7 @@ import backtype.storm.topology.base.BaseRichBolt;
 import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import itinno.common.StormLoggingHelper;
@@ -21,6 +22,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -44,8 +46,7 @@ public class DiscussionTreeBolt extends BaseRichBolt {
     private DateTime pufferStartTime = null;
 
     private int intervalInMinutes;
-    private HashMap<String, HashSet<String>> tweetIdSetsMap = new HashMap<>();
-    private HashMap<String, ArrayList<Tweet>> discussionTreesMap = new HashMap<>();
+    private List<Tweet> discussionTrees = new ArrayList<>();
 
     // Initialise Logger object
     private ch.qos.logback.classic.Logger logger = null;
@@ -192,25 +193,23 @@ public class DiscussionTreeBolt extends BaseRichBolt {
 
         if (ancestorTweetId != null) {
             boolean observed = false;
-            for (Entry<String, HashSet<String>> e : tweetIdSetsMap.entrySet()) {
-                if (e.getValue().contains(ancestorTweetId)) {
+            for (Tweet t : discussionTrees) {
+                if(t.getChildrenIds().contains(t.in_reply_to)) {
                     observed = true;
-                    e.getValue().add(tweetId);
-                    tweetIdSetsMap.get(e.getKey()).add(tweet.tweet_id);
-                    discussionTreesMap.get(e.getKey()).add(tweet);
+                    attachTweetToLeaf(t, tweet);
                     break;
                 }
             }
             if (!observed) {
                 // tweet is a reply or retweet but its ancestor was'nt observed by this bolt, therefore its ancestor is treated as a dummy entry
                 Tweet dummyTweet = new Tweet(null, ancestorTweetId, null, null, null, false, false);
-                tweetIdSetsMap.put(ancestorTweetId, new HashSet<>(Arrays.asList(ancestorTweetId, tweetId)));
-                discussionTreesMap.put(ancestorTweetId, new ArrayList<>(Arrays.asList(dummyTweet, tweet)));
+                dummyTweet.getChildrenIds().add(tweetId);
+                dummyTweet.getReplies().add(tweet);
+                discussionTrees.add(dummyTweet);
             }
         } else {
             // tweet is no reply or retweet 
-            tweetIdSetsMap.put(tweetId, new HashSet<>(Arrays.asList(tweetId)));
-            discussionTreesMap.put(tweetId, new ArrayList<>(Arrays.asList(tweet)));
+            discussionTrees.add(tweet);
         }
 
         if (timestamp.isAfter(deadline) || timestamp.isEqual(deadline)) {
@@ -218,7 +217,7 @@ public class DiscussionTreeBolt extends BaseRichBolt {
                 ObjectMapper mapper = new ObjectMapper();
                 String jsonResultString;
                 HashMap<String, Object> jsonResult = new HashMap<>();
-                jsonResult.put("trees", discussionTreesMap.values());
+                jsonResult.put("trees", discussionTrees);
                 jsonResult.put("start", pufferStartTime);
                 jsonResult.put("end", timestamp);
                 jsonResultString = mapper.writeValueAsString(jsonResult);
@@ -228,8 +227,7 @@ public class DiscussionTreeBolt extends BaseRichBolt {
                 collector.ack(input);
                 deadline.plusMinutes(intervalInMinutes);
                 pufferStartTime = null;
-                this.tweetIdSetsMap = new HashMap<>();
-                this.discussionTreesMap = new HashMap<>();
+                this.discussionTrees = new ArrayList<>();
             } catch (JsonProcessingException ex) {
                 Logger.getLogger(DiscussionTreeBolt.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
             }
@@ -247,6 +245,20 @@ public class DiscussionTreeBolt extends BaseRichBolt {
         declarer.declare(new Fields(strExampleEmitFieldsId));
     }
 
+    private void attachTweetToLeaf(Tweet rootTweet, Tweet tweetToAttach) {
+        if(rootTweet.getTweet_id().equals(tweetToAttach.getIn_reply_to())) {
+            rootTweet.getChildrenIds().add(tweetToAttach.getTweet_id());
+            rootTweet.getReplies().add(tweetToAttach);
+            
+        } else if(rootTweet.getChildrenIds().contains(tweetToAttach.getIn_reply_to())) {
+            rootTweet.getChildrenIds().add(tweetToAttach.getTweet_id());
+            
+            for(Tweet reply : rootTweet.getReplies()) {
+                attachTweetToLeaf(reply, tweetToAttach);
+            }
+        } 
+    }
+
     public class Tweet implements Comparable<Tweet> {
 
         private String author_id;
@@ -256,6 +268,9 @@ public class DiscussionTreeBolt extends BaseRichBolt {
         private String in_reply_to;
         private boolean observed;
         private boolean retweet;
+        private List<Tweet> replies = new ArrayList<>();
+        @JsonIgnore
+        private HashSet<String> childrenIds = new HashSet<>(Arrays.asList(tweet_id));
 
         public Tweet(String authorId, String tweetId, DateTime timestamp, String text, String inReplyTo, boolean observed, boolean retweet) {
             this.author_id = authorId;
@@ -364,7 +379,36 @@ public class DiscussionTreeBolt extends BaseRichBolt {
         public void setRetweet(boolean retweet) {
             this.retweet = retweet;
         }
-        
+
+        /**
+         * @return the replies
+         */
+        public List<Tweet> getReplies() {
+            return replies;
+        }
+
+        /**
+         * @param replies the replies to set
+         */
+        public void setReplies(List<Tweet> replies) {
+            this.replies = replies;
+        }
+
+        /**
+         * @return the childrenIds
+         */
+        @JsonIgnore
+        public HashSet<String> getChildrenIds() {
+            return childrenIds;
+        }
+
+        /**
+         * @param childrenIds the childrenIds to set
+         */
+        public void setChildrenIds(HashSet<String> childrenIds) {
+            this.childrenIds = childrenIds;
+        }
+
         @Override
         public int compareTo(Tweet o) {
             return this.timestamp.compareTo(o.getTimestamp());
