@@ -178,36 +178,36 @@ public class DiscussionTreeBolt extends BaseRichBolt {
         String authorId = (String) ((JSONObject) message.get("user")).get("id_str");
         String text = (String) message.get("text");
         String tweetId = (String) message.get("id_str");
+        boolean retweet = false;
 
         String ancestorTweetId = (String) message.get("in_reply_to_status_id_str");
 
         JSONObject retweeted_status = (JSONObject) message.get("retweeted_status");
         if (retweeted_status != null) {
+            retweet = true;
             ancestorTweetId = (String) ((JSONObject) message.get("retweeted_status")).get("id_str");
         }
 
-        Tweet tweet = new Tweet(authorId, tweetId, timestamp, text, ancestorTweetId);
+        Tweet tweet = new Tweet(authorId, tweetId, timestamp, text, ancestorTweetId, true, retweet);
 
         if (ancestorTweetId != null) {
             boolean observed = false;
             for (Entry<String, HashSet<String>> e : tweetIdSetsMap.entrySet()) {
                 if (e.getValue().contains(ancestorTweetId)) {
                     observed = true;
-                    tweet.setObserved(true);
                     e.getValue().add(tweetId);
-                    tweetIdSetsMap.get(ancestorTweetId).add(tweet.tweet_id);
-                    discussionTreesMap.get(ancestorTweetId).add(tweet);
+                    tweetIdSetsMap.get(e.getKey()).add(tweet.tweet_id);
+                    discussionTreesMap.get(e.getKey()).add(tweet);
                     break;
                 }
             }
             if (!observed) {
-                tweet.setObserved(false);
-                // tweet is a reply or retweet but its ancestor was'nt observed by this bolt, therefore it is treated as a new root Tweet
-                tweetIdSetsMap.put(tweetId, new HashSet<>(Arrays.asList(tweetId)));
-                discussionTreesMap.put(tweetId, new ArrayList<>(Arrays.asList(tweet)));
+                // tweet is a reply or retweet but its ancestor was'nt observed by this bolt, therefore its ancestor is treated as a dummy entry
+                Tweet dummyTweet = new Tweet(null, ancestorTweetId, null, null, null, false, false);
+                tweetIdSetsMap.put(ancestorTweetId, new HashSet<>(Arrays.asList(ancestorTweetId, tweetId)));
+                discussionTreesMap.put(ancestorTweetId, new ArrayList<>(Arrays.asList(dummyTweet, tweet)));
             }
         } else {
-            tweet.setObserved(true);
             // tweet is no reply or retweet 
             tweetIdSetsMap.put(tweetId, new HashSet<>(Arrays.asList(tweetId)));
             discussionTreesMap.put(tweetId, new ArrayList<>(Arrays.asList(tweet)));
@@ -255,13 +255,16 @@ public class DiscussionTreeBolt extends BaseRichBolt {
         private String text;
         private String in_reply_to;
         private boolean observed;
+        private boolean retweet;
 
-        public Tweet(String authorId, String tweetId, DateTime timestamp, String text, String inReplyTo) {
+        public Tweet(String authorId, String tweetId, DateTime timestamp, String text, String inReplyTo, boolean observed, boolean retweet) {
             this.author_id = authorId;
             this.tweet_id = tweetId;
             this.timestamp = timestamp;
             this.text = text;
             this.in_reply_to = inReplyTo;
+            this.observed = observed;
+            this.retweet = retweet;
         }
 
         /**
@@ -348,6 +351,20 @@ public class DiscussionTreeBolt extends BaseRichBolt {
             this.observed = observed;
         }
 
+        /**
+         * @return the retweet
+         */
+        public boolean isRetweet() {
+            return retweet;
+        }
+
+        /**
+         * @param retweet the retweet to set
+         */
+        public void setRetweet(boolean retweet) {
+            this.retweet = retweet;
+        }
+        
         @Override
         public int compareTo(Tweet o) {
             return this.timestamp.compareTo(o.getTimestamp());
