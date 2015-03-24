@@ -19,6 +19,7 @@ import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -38,8 +39,9 @@ public class InteractionGraphBolt extends BaseRichBolt {
     private boolean initialized = false;
 
     private DateTime deadline;
-    private int intervalInMinutes;
-    private HashMap<String, HashMap<String, ArrayList<String>>> interactionGraph = new HashMap<>();
+    private int intervalInMinutes = 60;
+    private DateTime bufferStartTime = null;
+    private HashMap<String, HashMap<String, HashSet<String>>> interactionGraph = new HashMap<>();
 
     // Initialise Logger object
     private ch.qos.logback.classic.Logger logger = null;
@@ -159,18 +161,27 @@ public class InteractionGraphBolt extends BaseRichBolt {
         Map<Object, Object> inputMap = (HashMap<Object, Object>) input.getValue(0);
         // Get JSON object from the HashMap from the Collections.singletonList
         JSONObject message = (JSONObject) Collections.singletonList(inputMap.get("message")).get(0);
-
+        
+        if(!message.containsKey("created_at")) {
+            return;     // skip delete messages
+        }
+        
         // Print received message
-        this.logger.info("Received message: " + message.toJSONString());
+//        this.logger.info("Received message: " + message.toJSONString());
 
         DateTime timestamp = DateTime.parse((String) message.get("created_at"), DateTimeFormat.forPattern("EEE MMM dd HH:mm:ss Z yyyy").withLocale(Locale.US));
-
+        
+        if (bufferStartTime == null) {
+            bufferStartTime = timestamp;
+            deadline = bufferStartTime.plusMinutes(intervalInMinutes);
+        }
+        
         String authorId = (String) ((JSONObject) message.get("user")).get("id_str");
 
         if (!interactionGraph.containsKey(authorId)) {
-            interactionGraph.put(authorId, new HashMap<String, ArrayList<String>>());
+            interactionGraph.put(authorId, new HashMap<String, HashSet<String>>());
         }
-        HashMap<String, ArrayList<String>> authorActions = interactionGraph.get(authorId);
+        HashMap<String, HashSet<String>> authorActions = interactionGraph.get(authorId);
 
         countReplies(message, authorActions);
         countMentions(message, authorActions);
@@ -181,34 +192,39 @@ public class InteractionGraphBolt extends BaseRichBolt {
             ObjectMapper mapper = new ObjectMapper();
             String jsonResult;
             try {
-                jsonResult = mapper.writeValueAsString(interactionGraph);
+                Map<String, Object> jsonResultObject = new HashMap();
+                jsonResultObject.put("start", bufferStartTime);
+                jsonResultObject.put("end", timestamp);
+                jsonResultObject.put("result", interactionGraph);
+                jsonResult = mapper.writeValueAsString(jsonResultObject);
                 this.logger.info("final result= " + jsonResult);
                 this.collector.emit(new Values(jsonResult));
                 // Acknowledge the collector that we actually received the input
                 collector.ack(input);
                 this.interactionGraph = new HashMap<>();
+                this.bufferStartTime = null;
             } catch (JsonProcessingException ex) {
                 Logger.getLogger(InteractionGraphBolt.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
             }
         }
     }
 
-    private void countReplies(JSONObject message, HashMap<String, ArrayList<String>> authorActions) {
+    private void countReplies(JSONObject message, HashMap<String, HashSet<String>> authorActions) {
         String replyId = (String) message.get("in_reply_to_user_id_str");
 
         if (replyId != null) {
             if (!authorActions.containsKey("replied_to")) {
-                authorActions.put("replied_to", new ArrayList<String>());
+                authorActions.put("replied_to", new HashSet<String>());
             }
             authorActions.get("replied_to").add(replyId);
         }
     }
 
-    private void countMentions(JSONObject message, HashMap<String, ArrayList<String>> authorActions) {
+    private void countMentions(JSONObject message, HashMap<String, HashSet<String>> authorActions) {
         JSONArray userMentions = (JSONArray) ((JSONObject) message.get("entities")).get("user_mentions");
         if (userMentions != null) {
             if (!authorActions.containsKey("mentioned")) {
-                authorActions.put("mentioned", new ArrayList<String>());
+                authorActions.put("mentioned", new HashSet<String>());
             }
             for (Object o : userMentions) {
                 String mentionedUser = (String) ((JSONObject) o).get("id_str");
@@ -217,11 +233,11 @@ public class InteractionGraphBolt extends BaseRichBolt {
         }
     }
 
-    private void countRetweets(JSONObject message, HashMap<String, ArrayList<String>> authorActions) {
+    private void countRetweets(JSONObject message, HashMap<String, HashSet<String>> authorActions) {
         JSONObject retweetStatus = (JSONObject) message.get("retweeted_status");
         if (retweetStatus != null) {
             if (!authorActions.containsKey("retweeted")) {
-                authorActions.put("retweeted", new ArrayList<String>());
+                authorActions.put("retweeted", new HashSet<String>());
             }
             String authorId = (String) ((JSONObject) retweetStatus.get("user")).get("id_str");
             authorActions.get("retweeted").add(authorId);
