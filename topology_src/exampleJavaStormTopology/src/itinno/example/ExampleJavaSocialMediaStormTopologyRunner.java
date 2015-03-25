@@ -118,7 +118,9 @@ public class ExampleJavaSocialMediaStormTopologyRunner {
 		BoltDeclarer boltDeclarer;
 		ExampleSocialMediaJavaLoggerBolt exampleSocialMediaJavaLoggerBolt;
 		ExampleSocialMediaJavaPrinterBolt exampleSocialMediaJavaPrinterBolt;
-                LocationCrawlerBolt locationCrawlerBolt;
+//                LocationCrawlerBolt locationCrawlerBolt;
+                DiscussionTreeBolt discussionTreeBolt;
+                InteractionGraphBolt interactionGraphBolt;
 		
 		// Customer configuration 
 		ConsumerConfig stormSocialMediaSpoutConfig = null; // OK
@@ -490,11 +492,20 @@ public class ExampleJavaSocialMediaStormTopologyRunner {
 			logger.info( "Declared Logger Bolt to the example Storm topology." );
                         
                         
-                        locationCrawlerBolt = new LocationCrawlerBolt(strExampleEmitFieldsId, 
-					strLogBaseDir, strLogPatternJava, logLevel, restletURL );
-                        boltDeclarer = builder.setBolt( "locationCrawlerId", locationCrawlerBolt );
-			boltDeclarer.shuffleGrouping( strExampleSocialMediaAMQPSpoutId );
+//                        locationCrawlerBolt = new LocationCrawlerBolt(strExampleEmitFieldsId, 
+//					strLogBaseDir, strLogPatternJava, logLevel, restletURL );
+//                        boltDeclarer = builder.setBolt( "locationCrawlerId", locationCrawlerBolt );
+//			boltDeclarer.shuffleGrouping( strExampleSocialMediaAMQPSpoutId );
 			
+                        discussionTreeBolt = new DiscussionTreeBolt(strExampleEmitFieldsId, strLogBaseDir, strLogPatternJava, logLevel);
+                        boltDeclarer = builder.setBolt( "discussionTeeBoltId", discussionTreeBolt );
+			boltDeclarer.shuffleGrouping( strExampleSocialMediaAMQPSpoutId );                      
+                        
+                        interactionGraphBolt = new InteractionGraphBolt(strExampleEmitFieldsId, strLogBaseDir, strLogPatternJava, logLevel);
+                        boltDeclarer = builder.setBolt( "interactionGraphBoltId", interactionGraphBolt );
+			boltDeclarer.shuffleGrouping( strExampleSocialMediaAMQPSpoutId );
+                        
+                        
 			// Set Java Printer bolt. At the moment the Bolt has one worker only
 			exampleSocialMediaJavaPrinterBolt = new ExampleSocialMediaJavaPrinterBolt();
 			
