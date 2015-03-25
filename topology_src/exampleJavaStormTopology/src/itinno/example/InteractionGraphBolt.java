@@ -16,7 +16,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import itinno.common.StormLoggingHelper;
 import java.lang.management.ManagementFactory;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -124,7 +123,7 @@ public class InteractionGraphBolt extends BaseRichBolt {
             }
 
             // Create log file name - combination of class name and current process id, e.g. ExampleSocialMediaJavaLoggerBolt_pid123.log 
-            String strLogName = "LocationCrawlerBolt_pid" + strPID + ".log";
+            String strLogName = "InteractionGraphBolt_pid" + strPID + ".log";
 
             // Specify the path to the log file (the file that will be created)
             String fileSep = System.getProperty("file.separator");
@@ -162,6 +161,9 @@ public class InteractionGraphBolt extends BaseRichBolt {
         // Get JSON object from the HashMap from the Collections.singletonList
         JSONObject message = (JSONObject) Collections.singletonList(inputMap.get("message")).get(0);
         
+        // Acknowledge the collector that we actually received the input
+        collector.ack(input);
+        
         if(!message.containsKey("created_at")) {
             return;     // skip delete messages
         }
@@ -197,10 +199,8 @@ public class InteractionGraphBolt extends BaseRichBolt {
                 jsonResultObject.put("end", timestamp);
                 jsonResultObject.put("result", interactionGraph);
                 jsonResult = mapper.writeValueAsString(jsonResultObject);
-                this.logger.info("final result= " + jsonResult);
+                this.logger.info("Deadline expired, Buffer size : " + interactionGraph.size());
                 this.collector.emit(new Values(jsonResult));
-                // Acknowledge the collector that we actually received the input
-                collector.ack(input);
                 this.interactionGraph = new HashMap<>();
                 this.bufferStartTime = null;
             } catch (JsonProcessingException ex) {

@@ -131,7 +131,7 @@ public class DiscussionTreeBolt extends BaseRichBolt {
             }
 
             // Create log file name - combination of class name and current process id, e.g. ExampleSocialMediaJavaLoggerBolt_pid123.log 
-            String strLogName = "LocationCrawlerBolt_pid" + strPID + ".log";
+            String strLogName = "DiscussionTreeBolt_pid" + strPID + ".log";
 
             // Specify the path to the log file (the file that will be created)
             String fileSep = System.getProperty("file.separator");
@@ -168,6 +168,9 @@ public class DiscussionTreeBolt extends BaseRichBolt {
         Map<Object, Object> inputMap = (HashMap<Object, Object>) input.getValue(0);
         // Get JSON object from the HashMap from the Collections.singletonList
         JSONObject message = (JSONObject) Collections.singletonList(inputMap.get("message")).get(0);
+        
+        // Acknowledge the collector that we actually received the input
+        collector.ack(input);
         
         if(!message.containsKey("created_at")) {
             return;     // skip delete messages
@@ -229,10 +232,8 @@ public class DiscussionTreeBolt extends BaseRichBolt {
                 jsonResult.put("end", timestamp);
                 jsonResult.put("result", discussionTrees);
                 jsonResultString = mapper.writeValueAsString(jsonResult);
-                this.logger.info("final result= " + jsonResultString);
+                this.logger.info("Deadline expired, Buffer size : " + discussionTrees.size());
                 this.collector.emit(new Values(jsonResultString));
-                // Acknowledge the collector that we actually received the input
-                collector.ack(input);
                 bufferStartTime = null;
                 this.discussionTrees = new ArrayList<>();
             } catch (JsonProcessingException ex) {
