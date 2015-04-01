@@ -65,6 +65,7 @@ public class TopologyActionResource extends ServerResource {
     }
 
     @Get(value = "json")
+    @Override
     public String toString() {
         ObjectNode responseObject = new ObjectNode(JsonNodeFactory.instance);
         responseObject.put("success", success);
@@ -111,7 +112,7 @@ public class TopologyActionResource extends ServerResource {
     private void deployTopology() {
         try {
             if (channelId != null) {
-                AntRunner.deployTopology(topologyId, channelId);
+                MavenRunner.deployTopology(topologyId, channelId);
                 success = true;
                 status = "Topology " + topologyId + " was deployed and is listening on channel " + channelId;
             } else {

@@ -27,7 +27,6 @@ import com.hp.hpl.jena.rdf.model.SimpleSelector;
 import com.hp.hpl.jena.rdf.model.impl.ResourceImpl;
 import com.hp.hpl.jena.vocabulary.OWL;
 import com.hp.hpl.jena.vocabulary.RDFS;
-import itinno.common.StormLoggingHelper;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -56,12 +55,6 @@ public class LocationCrawlerBolt extends BaseRichBolt {
     private String strExampleEmitFieldsId;
     private String restletURL;
 
-    // Initialise Logger object
-    private ch.qos.logback.classic.Logger logger = null;
-    private String strLogBaseDir;
-    private String strLogPattern;
-    private ch.qos.logback.classic.Level logLevel;
-
     public LocationCrawlerBolt(String strExampleEmitFieldsId, String strLogBaseDir, String strLogPattern, ch.qos.logback.classic.Level logLevel, String restletURL) throws Exception {
         super();
 
@@ -89,9 +82,6 @@ public class LocationCrawlerBolt extends BaseRichBolt {
 
         // After all the above checks complete, store the emit field id, path (or name) of the log file and log level  
         this.strExampleEmitFieldsId = strExampleEmitFieldsId;
-        this.strLogBaseDir = strLogBaseDir;
-        this.strLogPattern = strLogPattern;
-        this.logLevel = logLevel;
     }
 
     /**
@@ -138,51 +128,6 @@ public class LocationCrawlerBolt extends BaseRichBolt {
             }
         } catch (IOException ex) {
             Logger.getLogger(LocationCrawlerBolt.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
-        // set up the logger
-        String strPID = null;
-
-        // Setup the logger
-        try {
-            // Create log file name - combination of class name and current PID e.g. ExampleJavaSocialMediaStormTopologyRunner_pid123.log
-            try {
-                // Try to get the pid using java.lang.Management class and split it on @ symbol (e.g. returned value will be in the format of {p_id}@{host_name})
-                strPID = ManagementFactory.getRuntimeMXBean().getName().split("@")[0];
-
-                // Handle any possible exception here, such as if the process_name@host will not be returned (possible, depends on different JVMs)
-            } catch (Exception e) {
-                // Print the message, stacktrace and allow to continue (pid value will not be contained in the log file)
-                System.err.println("Failed to get process process id. Will continue but the log files names will not contain pid value. Details: " + e.getMessage());
-                e.printStackTrace();
-
-                // Pid will be simply an empty value
-                strPID = "";
-            }
-
-            // Create log file name - combination of class name and current process id, e.g. ExampleSocialMediaJavaLoggerBolt_pid123.log 
-            String strLogName = "LocationCrawlerBolt_pid" + strPID + ".log";
-
-            // Specify the path to the log file (the file that will be created)
-            String fileSep = System.getProperty("file.separator");
-            String strLogFilePath = this.strLogBaseDir + fileSep + strLogName;
-
-            StormLoggingHelper stormLoggingHelper = new StormLoggingHelper();
-            this.logger = stormLoggingHelper.createLogger(LocationCrawlerBolt.class.getName(), strLogFilePath,
-                    this.strLogPattern, this.logLevel);
-
-            // Issue test message
-            this.logger.info("Logger was initialised.");
-
-        } catch (Exception e) {
-            // Print error message, stacktrace and throw an exception since the log functionality is the main target of this bolt 
-            System.err.printf("Error occurred during Storm Java Logger Bolt logger setup. Details: " + e.getMessage());
-            e.printStackTrace();
-            try {
-                throw new Exception("Java Storm logger bolt log initialisation failed. Details: " + e.getMessage());
-            } catch (Exception e1) {
-                e1.printStackTrace();
-            }
         }
     }
 
@@ -286,10 +231,12 @@ public class LocationCrawlerBolt extends BaseRichBolt {
         Map<Object, Object> inputMap = (HashMap<Object, Object>) input.getValue(0);
         // Get JSON object from the HashMap from the Collections.singletonList
         JSONObject message = (JSONObject) Collections.singletonList(inputMap.get("message")).get(0);
+        collector.ack(input);
+
         ArrayList<Map<String, Literal>> relatedLocations = new ArrayList<>();
 
         // Print received message
-        this.logger.info("Received message: " + message.toJSONString());
+        Logger.getLogger(DiscussionTreeBolt.class.getName()).log(Level.INFO, "Received message: " + message.toJSONString());
         if (message.containsKey("itinno:loc_set")) {
             JSONArray locationSet = (JSONArray) message.get("itinno:loc_set");
 
@@ -346,11 +293,9 @@ public class LocationCrawlerBolt extends BaseRichBolt {
 
         geospatialContext.put("ukob:explored_entities", exploredEntities);
 
-        this.logger.info("final result= " + geospatialContext.toJSONString());
-        // todo: emit annotated locations
+        Logger.getLogger(DiscussionTreeBolt.class.getName()).log(Level.INFO, "final result= " + geospatialContext.toJSONString());
+
         this.collector.emit(new Values(geospatialContext));
-        // Acknowledge the collector that we actually received the input
-        collector.ack(input);
     }
 
     /**

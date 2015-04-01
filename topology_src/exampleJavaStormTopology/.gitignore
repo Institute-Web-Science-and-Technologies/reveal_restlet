@@ -3,6 +3,8 @@
 # Except these files
 !.gitignore
 !LocationCrawlerBolt.java
+!build.xml
+!ExampleJavaSocialMediaStormTopologyRunner.java
 
 # ...even if they are in subdirectories
 !*/
