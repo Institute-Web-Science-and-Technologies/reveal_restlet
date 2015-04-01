@@ -15,7 +15,7 @@ deploy someTopology on someChannel | http://localhost:8182/storm/someTopology/de
 * Follow the instructions of the project documentation pdf file in order to set up rabbitmq and storm
 * This project comes as a maven project so download and install [maven](http://maven.apache.org/download.cgi)
 * invoke "make run" or "mvn clean install" in order to run the REST service
-* If topologies should be deployed to a remote server then the value for "nimbus.host" in [ant.properties](../master/ant.properties) has to be changed to the address of the remote server.
+* If topologies should be deployed to a remote server then the value for "nimbus.host" in [deployment.properties](../master/deployment.properties) has to be changed to the address of the remote server.
 Furthermore the value for "restlet.url" has to be changed to the restlet server's address.
 
 
