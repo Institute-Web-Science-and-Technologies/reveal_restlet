@@ -26,7 +26,7 @@ Furthermore the value for "restlet.url" has to be changed to the restlet server'
 * For an example of a topology with an existing pom see [the west topology](https://github.com/nico1510/westTopology)
 
 ## Implementing a storm bolt
-* Sample implementation are available [here](https://github.com/nico1510/westTopology/tree/master/src/main/java/uniko/west/westtopology/bolts)
+* Sample implementations are available [here](https://github.com/nico1510/westTopology/tree/master/src/main/java/uniko/west/westtopology/bolts)
 * Some of the samples use static files for their computations. All static files which are used by a bolt have to be moved into the [resources](../master/resources) directory in order to be available at runtime. Every file which is located in this directory will be accessible via http at http://localhost:8182/static/${filename}. 
 * In order to make third-party libraries available at runtime for storm bolts they have to be included in the 
 topology jar ("fat jar" or "jar with dependencies"). This does not apply to storm libraries. Their scope has to
