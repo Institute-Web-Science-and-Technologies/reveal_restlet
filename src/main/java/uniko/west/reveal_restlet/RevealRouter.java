@@ -6,7 +6,6 @@
 package uniko.west.reveal_restlet;
 
 import java.io.File;
-import java.net.InetAddress;
 import org.restlet.Component;
 import org.restlet.data.Protocol;
 import org.restlet.resource.Directory;
