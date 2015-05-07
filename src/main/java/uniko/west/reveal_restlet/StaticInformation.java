@@ -13,6 +13,6 @@ package uniko.west.reveal_restlet;
 public class StaticInformation {
     
     public static String deploymentPropertiesFile = "./deployment.properties";
-    public static String topologySrcDir = "./topology_src";
+    public static String topologySrcDir = "./topology_src/westTopologies";
     
 }

@@ -14,6 +14,7 @@ import java.util.logging.Logger;
 import org.apache.maven.shared.invoker.DefaultInvocationRequest;
 import org.apache.maven.shared.invoker.DefaultInvoker;
 import org.apache.maven.shared.invoker.InvocationRequest;
+import org.apache.maven.shared.invoker.InvocationResult;
 import org.apache.maven.shared.invoker.Invoker;
 
 /**
@@ -30,11 +31,16 @@ public class MavenRunner {
 
         InvocationRequest request = new DefaultInvocationRequest();
         request.setPomFile(pomFile);
+        request.setProjects(Arrays.asList(topologyName));
+        request.setAlsoMake(true);
         request.setGoals(Arrays.asList("clean", "install"));
         request.setProperties(props);
-        request.setBaseDirectory(new File(StaticInformation.topologySrcDir + File.separator + topologyName));
+        request.setBaseDirectory(new File(StaticInformation.topologySrcDir));
 
         Invoker invoker = new DefaultInvoker();
-        invoker.execute(request);
+        InvocationResult result = invoker.execute(request);
+        if(result.getExitCode() != 0) {
+            throw new Exception();
+        }
     }
 }

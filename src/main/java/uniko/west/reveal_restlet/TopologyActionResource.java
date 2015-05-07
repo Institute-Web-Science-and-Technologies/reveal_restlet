@@ -121,6 +121,7 @@ public class TopologyActionResource extends ServerResource {
             }
         } catch (Exception ex) {
             success = false;
+            status = "topology " + topologyId + " is already deployed to the cluster or was not found in directory " + StaticInformation.topologySrcDir;
             Logger.getLogger(TopologyActionResource.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
