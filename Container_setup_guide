@@ -1,0 +1,84 @@
+apt-get update
+apt-get install wget
+wget --no-check-certificate --no-cookies --header "Cookie: oraclelicense=accept-securebackup-cookie" http://download.oracle.com/otn-pub/java/jdk/8u45-b14/jdk-8u45-linux-x64.tar.gz
+
+tar xvfz jdk-8u45-linux-x64.tar.gz
+mv jdk1.8.0_45/ /opt/jdk1.8.0_45
+
+
+update-alternatives --install "/usr/bin/java" "java" "/opt/jdk1.8.0_45/bin/java" 1
+update-alternatives --install "/usr/bin/javac" "javac" "/opt/jdk1.8.0_45/bin/javac" 1
+update-alternatives --install "/usr/bin/javaws" "javaws" "/opt/jdk1.8.0_45/bin/javaws" 1
+update-alternatives --install "/usr/bin/jar" "jar" "/opt/jdk1.8.0_45/bin/jar" 1 
+
+update-alternatives --set "java" "/opt/jdk1.8.0_45/bin/java"
+update-alternatives --set "javac" "/opt/jdk1.8.0_45/bin/javac"
+update-alternatives --set "javaws" "/opt/jdk1.8.0_45/bin/javaws"
+update-alternatives --set "jar" "/opt/jdk1.8.0_45/bin/jar" 
+
+rm jdk-8u45-linux-x64.tar.gz
+
+wget http://mirror.netcologne.de/apache.org/zookeeper/zookeeper-3.4.6/zookeeper-3.4.6.tar.gz
+
+tar xvfz zookeeper-3.4.6.tar.gz
+rm zookeeper-3.4.6.tar.gz
+
+mkdir zookeeper_data_dir
+
+cp zookeeper-3.4.6/conf/zoo_sample.cfg zookeeper-3.4.6/conf/zoo.cfg
+
+apt-get install vim
+
+vim zookeeper-3.4.6/conf/zoo.cfg
+
+# edit dataDir to "/zookeeper_data_dir"
+
+wget http://artfiles.org/apache.org/storm/apache-storm-0.9.1-incubating/apache-storm-0.9.1-incubating.tar.gz
+
+tar xvfz apache-storm-0.9.1-incubating.tar.gz
+rm apache-storm-0.9.1-incubating.tar.gz
+
+mkdir storm_topology_dir
+
+vim apache-storm-0.9.1-incubating/conf/storm.yaml
+
+# storm.zookeeper.servers:
+# - "localhost"
+# storm.zookeeper.port: 2181
+# storm.local.dir: "/storm_topology_dir"
+# java.library.path: "/opt/jdk1.8.0_45/lib"
+# supervisor.slots.ports:
+# - 6700
+# - 6701
+# - 6702
+# - 6703
+# ui.port: 8091
+
+
+echo 'export PATH=$PATH:/apache-storm-0.9.1-incubating/bin' >> /root/.bashrc
+echo 'export PATH=$PATH:/zookeeper-3.4.6/bin' >> /root/.bashrc
+
+wget http://ftp-stud.hs-esslingen.de/pub/Mirrors/ftp.apache.org/dist/maven/maven-3/3.3.3/binaries/apache-maven-3.3.3-bin.tar.gz
+tar xvfz apache-maven-3.3.3-bin.tar.gz
+rm apache-maven-3.3.3-bin.tar.gz
+
+echo 'export PATH=$PATH:/apache-maven-3.3.3/bin' >> /root/.bashrc
+
+
+apt-get install git
+
+git clone https://github.com/Institute-Web-Science-and-Technologies/reveal_restlet
+cd /reveal_restlet/topology_src
+git clone https://github.com/Institute-Web-Science-and-Technologies/westTopologies
+
+cd /reveal_restlet
+
+mvn clean install
+
+cd /reveal_restlet/topology_src/westTopologies
+
+mvn initialize
+mvn package
+
+sudo docker run -i -t <image> /bin/bash
+
