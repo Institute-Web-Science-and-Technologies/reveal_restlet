@@ -1,0 +1,15 @@
+#! /bin/sh
+
+killall java
+
+mkdir -p ~/deployment/logs
+
+#sudo rabbitmqctl stop
+set -e
+
+zkServer.sh start
+storm nimbus >~/deployment/logs/storm_nimbus.log 2>&1 &
+storm supervisor >~/deployment/logs/storm_supervisor.log 2>&1 &
+storm ui >~/deployment/logs/storm_ui.log 2>&1 &
+#sudo rabbitmq-server start-app >~/deployment/logs/rabbitmq.log 2>&1 &
+mvn clean install >~/deployment/logs/restlet_ui.log 2>&1 &
